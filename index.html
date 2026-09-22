@@ -121,6 +121,8 @@
     #root{max-width:100%}
     .sheet{padding:16px 14px 26px}
     .masthead .sub{font-size:11px}
+    /* masthead top line stays on one line */
+    .masthead .over{font-size:10px; letter-spacing:2px; white-space:nowrap}
     /* portfolio stats: two per row */
     .stat{flex:1 1 42%; padding:7px 8px}
     .stat .v{font-size:19px}
@@ -331,9 +333,9 @@ function App(){
   return (
     <div className="sheet">
       <div className="masthead">
-        <div className="over">Est. 1920 &nbsp;•&nbsp; Texas Edition &nbsp;•&nbsp; Price: 2¢</div>
+        <div className="over">Est. 1920 &nbsp;•&nbsp; U.S. Edition &nbsp;•&nbsp; Price: 2¢</div>
         <h1>The Roaring Market</h1>
-        <div className="sub"><span>A 1920s Stock Market Simulation</span><span>For Texas History Classrooms</span></div>
+        <div className="sub"><span>A 1920s Stock Market Simulation</span><span>For History Classrooms</span></div>
       </div>
 
       {g.screen === "welcome" && (
@@ -436,10 +438,6 @@ function Welcome({saveInfo, onStart, onResume, onClear}){
           lives in the student's own browser (localStorage) and can be cleared any time.
           At the end, students generate a certificate with their first name and last initial
           plus starting/final portfolio values, which they can print, copy, or email to you.
-        </p>
-        <p>
-          <b>To share:</b> host the single <i>index.html</i> file on any website, LMS, or shared
-          drive — no server or build step required (it loads React from a CDN).
         </p>
       </details>
     </div>
@@ -792,7 +790,7 @@ Completed: ${today}
       </div>
 
       <div id="certificate">
-        <div className="c-over">The Roaring Market • Texas History</div>
+        <div className="c-over">The Roaring Market • U.S. History</div>
         <h2>Certificate of Completion</h2>
         <div className="c-body">
           This certifies that
