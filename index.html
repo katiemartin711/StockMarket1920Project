@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Roaring Market — A 1920s Stock Market Simulation</title>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js"></script>
+<style>
+  :root{
+    --paper:#f6efdc; --paper2:#efe4c8; --ink:#2b2114; --ink-soft:#5a4a33;
+    --accent:#8a1f1f; --accent2:#1f4d8a; --gold:#b98a2f; --line:#2b2114;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; color:var(--ink);
+    font-family: Georgia, 'Palatino Linotype', 'Times New Roman', serif;
+    background:
+      radial-gradient(ellipse at 20% 10%, #3a2f22 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 90%, #3a2f22 0%, transparent 55%),
+      #241c12;
+    min-height:100vh; padding:18px 12px 60px;
+  }
+  #root{max-width:960px; margin:0 auto}
+  .sheet{
+    background:var(--paper);
+    border:1px solid #6b5a3e;
+    box-shadow:0 0 0 6px var(--paper), 0 0 0 7px #6b5a3e, 0 18px 50px rgba(0,0,0,.55);
+    padding:26px 26px 34px;
+  }
+  /* ---------- masthead / newspaper ---------- */
+  .masthead{text-align:center; border-bottom:4px double var(--line); padding-bottom:10px; margin-bottom:6px}
+  .masthead .over{font-size:12px; letter-spacing:4px; text-transform:uppercase; color:var(--ink-soft)}
+  .masthead h1{font-size:clamp(30px,6vw,54px); margin:4px 0; letter-spacing:2px; font-variant:small-caps}
+  .masthead .sub{font-size:13px; color:var(--ink-soft); display:flex; justify-content:space-between; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:4px 2px; margin-top:8px}
+  .dateline{font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-soft); margin:14px 0 2px}
+  .headline{font-size:clamp(24px,4.6vw,40px); line-height:1.05; margin:2px 0 10px; font-weight:900; text-align:center}
+  .headline.crash{color:var(--accent)}
+  .cols{column-count:2; column-gap:26px; column-rule:1px solid #c9b98f; font-size:15.5px; line-height:1.55; text-align:justify}
+  @media (max-width:640px){.cols{column-count:1}}
+  .cols p{margin:0 0 10px}
+  .cols p:first-child::first-letter{font-size:2.6em; float:left; line-height:.85; padding-right:6px; font-weight:900}
+  .whisper{
+    border:2px solid var(--line); background:var(--paper2); padding:10px 14px; margin:14px 0;
+    font-style:italic; break-inside:avoid;
+  }
+  .whisper b{font-style:normal; text-transform:uppercase; letter-spacing:1px; font-size:12px; display:block; margin-bottom:4px}
+  /* ---------- generic ---------- */
+  h2.section{font-variant:small-caps; letter-spacing:2px; border-bottom:2px solid var(--line); padding-bottom:6px; margin:26px 0 12px}
+  .lede{font-size:17px; line-height:1.6}
+  .btn{
+    font-family:inherit; cursor:pointer; font-size:15px; letter-spacing:1.5px; text-transform:uppercase;
+    background:#2b2114; color:#f6efdc; border:2px solid #2b2114; padding:12px 22px; margin:6px 6px 6px 0;
+    transition:transform .08s ease;
+  }
+  .btn:hover{background:#453522}
+  .btn:active{transform:translateY(1px)}
+  .btn.secondary{background:transparent; color:#2b2114}
+  .btn.secondary:hover{background:#e7d9b8}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  .center{text-align:center}
+  .muted{color:var(--ink-soft); font-size:14px}
+  .alert{
+    border:2px solid var(--accent); background:#f7e3df; padding:12px 14px; margin:12px 0; font-size:15px;
+  }
+  .alert b{color:var(--accent)}
+  .goodbox{border:2px solid #2f6b2f; background:#e6f0e2; padding:12px 14px; margin:12px 0}
+  /* ---------- portfolio bar ---------- */
+  .portbar{display:flex; flex-wrap:wrap; gap:10px; margin:14px 0}
+  .stat{flex:1 1 130px; border:1px solid #a68d5f; background:#fbf5e4; padding:8px 12px; text-align:center}
+  .stat .k{font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-soft)}
+  .stat .v{font-size:22px; font-weight:700}
+  .pos{color:#1f6b1f} .neg{color:var(--accent)}
+  /* ---------- market table ---------- */
+  table.market{width:100%; border-collapse:collapse; font-size:15px; margin:10px 0}
+  table.market th{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; text-align:left; border-bottom:2px solid var(--line); padding:8px 6px}
+  table.market td{border-bottom:1px solid #d3c194; padding:9px 6px; vertical-align:middle}
+  table.market tr:hover td{background:#f3ead2}
+  .sym{font-weight:900; letter-spacing:1px}
+  .blurb{display:block; font-size:12.5px; color:var(--ink-soft); font-style:italic}
+  .qty{width:64px; font-family:inherit; font-size:15px; padding:6px; border:1px solid #a68d5f; background:#fffdf4}
+  .mini{
+    font-family:inherit; cursor:pointer; font-size:12px; letter-spacing:1px; text-transform:uppercase;
+    padding:7px 10px; margin:2px; border:1.5px solid #2b2114; background:#2b2114; color:#f6efdc;
+  }
+  .mini.sell{background:transparent; color:#2b2114}
+  .mini:hover{filter:brightness(1.15)}
+  .marginrow{border:2px dashed #a68d5f; padding:12px 14px; margin:14px 0; background:#fbf5e4; font-size:15px}
+  .marginrow label{display:flex; gap:10px; align-items:flex-start; cursor:pointer; line-height:1.45}
+  .marginrow input[type=checkbox]{width:18px; height:18px; margin-top:2px}
+  .msg{font-size:14px; margin:8px 0; min-height:20px}
+  .msg.err{color:var(--accent); font-weight:700}
+  .msg.ok{color:#1f6b1f; font-weight:700}
+  /* ---------- results ---------- */
+  .bigscore{text-align:center; margin:18px 0}
+  .bigscore .num{font-size:clamp(40px,9vw,72px); font-weight:900}
+  .rank{font-size:20px; font-variant:small-caps; letter-spacing:3px; border-top:2px solid var(--line); border-bottom:2px solid var(--line); display:inline-block; padding:6px 26px; margin:10px 0}
+  table.ledger{width:100%; border-collapse:collapse; font-size:15px; margin:12px 0}
+  table.ledger td{padding:7px 4px; border-bottom:1px dotted #b39b66}
+  table.ledger tr.total td{font-weight:900; border-bottom:2px solid var(--line); border-top:2px solid var(--line); font-size:17px}
+  /* ---------- certificate ---------- */
+  #certificate{
+    border:10px double var(--gold); background:#fdf9ec; padding:40px 30px; text-align:center; margin:20px 0;
+  }
+  #certificate .c-over{letter-spacing:5px; text-transform:uppercase; font-size:12px; color:var(--ink-soft)}
+  #certificate h2{font-size:clamp(28px,5.5vw,44px); font-variant:small-caps; letter-spacing:3px; margin:8px 0}
+  #certificate .c-name{font-family:'Brush Script MT','Segoe Script',cursive; font-size:clamp(34px,7vw,56px); margin:10px 0; color:var(--accent2)}
+  #certificate .c-body{font-size:17px; line-height:1.7; max-width:560px; margin:0 auto}
+  #certificate .c-vals{display:flex; justify-content:center; gap:36px; margin:18px 0; flex-wrap:wrap}
+  #certificate .c-vals .v{font-size:26px; font-weight:900}
+  #certificate .c-vals .k{font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-soft)}
+  #certificate .c-date{margin-top:34px; font-size:15px; letter-spacing:3px; text-transform:uppercase; color:var(--ink-soft)}
+  .nameinput{font-family:inherit; font-size:20px; padding:10px 14px; border:2px solid #2b2114; background:#fffdf4; width:min(360px,90%)}
+  details.teacher{border:1px solid #a68d5f; background:#fbf5e4; padding:10px 14px; margin:16px 0; font-size:14.5px}
+  details.teacher summary{cursor:pointer; font-weight:700; letter-spacing:1px; text-transform:uppercase; font-size:13px}
+  footer.note{margin-top:26px; padding-top:12px; border-top:1px solid #c9b98f; font-size:12.5px; color:var(--ink-soft); text-align:center}
+  /* ---------- responsive: phone & small screens ---------- */
+  @media (max-width:680px){
+    body{padding:10px 8px 48px}
+    #root{max-width:100%}
+    .sheet{padding:16px 14px 26px}
+    .masthead .sub{font-size:11px}
+    /* portfolio stats: two per row */
+    .stat{flex:1 1 42%; padding:7px 8px}
+    .stat .v{font-size:19px}
+    /* market tables become stacked cards */
+    table.market thead{display:none}
+    table.market, table.market tbody, table.market tr, table.market td{display:block; width:100%}
+    table.market{margin:6px 0}
+    table.market tr{
+      border:2px solid #a68d5f; background:#fbf5e4; margin:12px 0; padding:12px 14px;
+    }
+    table.market td{border:none; padding:3px 0}
+    table.market td.c-co{font-size:16px; margin-bottom:2px}
+    table.market td.c-price, table.market td.c-chg, table.market td.c-own{display:inline-block; width:auto; margin-right:14px; font-size:15px}
+    table.market td.c-price::before{content:"Price: "; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft)}
+    table.market td.c-chg::before{content:"Change: "; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft)}
+    table.market td.c-own::before{content:"Own: "; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft)}
+    table.market td.c-trade{margin-top:8px}
+    table.market tr:hover td{background:transparent}
+    /* bigger touch targets */
+    .qty{width:84px; font-size:17px; padding:10px 8px}
+    .mini{font-size:14px; padding:12px 16px; margin:4px 4px 4px 0}
+    .marginrow input[type=checkbox]{width:24px; height:24px}
+    /* main action buttons go full width */
+    .btn{display:block; width:100%; margin:8px 0; padding:15px 18px; font-size:16px}
+    .center .btn{max-width:420px; margin-left:auto; margin-right:auto}
+    /* certificate: date line needs no extra mobile handling */
+    #certificate{padding:26px 16px}
+    .nameinput{font-size:18px}
+    .cols{font-size:15px}
+  }
+  /* ---------- larger screens: use a little more room ---------- */
+  @media (min-width:1100px){
+    #root{max-width:1020px}
+  }
+  @media print{
+    body{background:#fff; padding:0}
+    body *{visibility:hidden}
+    #certificate, #certificate *{visibility:visible}
+    #certificate{position:absolute; left:0; top:0; width:100%; margin:0; box-shadow:none}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState, useEffect, useMemo} = React;
+
+/* ================= GAME DATA ================= */
+const START_CASH = 100;
+const MARGIN_LIMIT = 100;      /* max total margin debt */
+const MARGIN_RATE = 0.06;      /* yearly interest on margin debt */
+const SAVE_KEY = "roaring-market-save-v1";
+const YEARS = [1920,1921,1922,1923,1924,1925,1926,1927,1928,1929];
+
+const STOCKS = [
+  {sym:"RCA",   name:"Radio Corp. of America", blurb:"The radio craze",            prices:[3,2,4,7,10,18,32,70,160,35]},
+  {sym:"GM",    name:"General Motors",         blurb:"A car in every garage",      prices:[4,3,5,6,8,12,16,24,40,12]},
+  {sym:"USS",   name:"U.S. Steel",             blurb:"Backbone of industry",       prices:[8,6,7,9,11,14,17,22,30,10]},
+  {sym:"GE",    name:"General Electric",       blurb:"Lighting up America",        prices:[6,5,7,10,13,18,25,38,60,18]},
+  {sym:"OIL",   name:"Standard Oil of N.J.",   blurb:"Texas tea and gasoline",     prices:[10,8,9,11,13,16,20,28,38,12]},
+  {sym:"ATT",   name:"AT&T",                   blurb:"The telephone monopoly",     prices:[9,8,10,12,14,17,20,26,34,11]},
+  {sym:"WARD",  name:"Montgomery Ward",        blurb:"The mail-order catalog",     prices:[3,2,4,6,9,14,20,32,55,15]},
+  {sym:"SEARS", name:"Sears, Roebuck",         blurb:"The everything store",       prices:[5,4,6,8,11,15,22,34,58,16]},
+];
+
+const NEWS = {
+1920:{kicker:"Austin, Texas — January 1920", headline:"War Boom Goes Bust",
+ stories:[
+  "The guns of the Great War have been silent for a year, and the factory orders that made America rich are drying up. Stocks stumble as the nation slides into a sharp postwar slump.",
+  "Down in Texas, oil derricks still rise over the plains — black gold may be the future, but even oil shares are sagging for now."],
+ whisper:"Old-timers say: buy when there is panic in the streets. Prices are the lowest you may ever see…"},
+1921:{kicker:"New York — January 1921", headline:"Hard Times Grip the Nation",
+ stories:[
+  "Unemployment spikes and prices fall for the second straight year. Breadlines grow in the big cities while Wall Street holds its breath.",
+  "President Harding promises a “return to normalcy.” Wall Street wonders what normal even means anymore."],
+ whisper:"Some folks are selling everything they own. Others are quietly buying…"},
+1922:{kicker:"New York — January 1922", headline:"Recovery in the Air",
+ stories:[
+  "Factories hum again and the slump fades into memory. Stock prices climb back as America gets to work.",
+  "A craze sweeps the nation: RADIO. Families gather around crackling crystal sets, and the Radio Corporation of America cannot make them fast enough."],
+ whisper:"That radio contraption — it is not a fad, it is the future. Or so the fellows at the club say."},
+1923:{kicker:"Washington — January 1923", headline:"“The Business of America Is Business”",
+ stories:[
+  "President Coolidge’s pro-business creed electrifies Wall Street. “Silent Cal” may not talk much, but stock prices are doing the talking.",
+  "Texas oil money pours into the markets as new fields gush. Standard Oil shares ride the black-gold wave."],
+ whisper:"Borrowing money to invest — buying “on margin” — is getting popular. Bigger bets, bigger winnings…"},
+1924:{kicker:"New York — January 1924", headline:"Coolidge Wins in a Landslide",
+ stories:[
+  "Prosperity votes: Coolidge crushes his opponents, and the market celebrates with a roaring year-end rally.",
+  "Your barber, your butcher, your bootblack — everybody is talking stocks. “It’s easy money,” they say."],
+ whisper:"The smart money keeps buying. This rally has years to run — doesn’t it?"},
+1925:{kicker:"Miami — January 1925", headline:"Florida Land Boom!",
+ stories:[
+  "Swampland sells for fortunes overnight as speculators flip lots sight unseen. If dirt can do that, imagine what stocks can do!",
+  "Installment buying puts a radio and a Model T in every home. Company profits — and share prices — soar to new heights."],
+ whisper:"Florida lots are doubling monthly. Stocks feel safer than swampland, anyway."},
+1926:{kicker:"Miami — January 1926", headline:"Florida Bust!",
+ stories:[
+  "The land bubble pops: hurricanes and cold reality sink Florida prices. Fortunes vanish overnight.",
+  "Wall Street shrugs. “Land is gambling,” the bankers sniff. “Stocks are investing.” The bull market charges on."],
+ whisper:"A bubble popped and nobody cared. What if the next bubble is stocks? Nah — couldn’t be."},
+1927:{kicker:"New York — January 1927", headline:"Lucky Lindy Conquers the Atlantic!",
+ stories:[
+  "Lindbergh’s solo flight across the ocean electrifies the nation. Anything feels possible — including endless riches.",
+  "Borrowing to buy stocks — “margin” — sweeps the nation. For every $100 of stock, some brokers ask only $10 of your own money!"],
+ whisper:"Everybody is buying on margin now. When everyone is doing it, what could possibly go wrong?"},
+1928:{kicker:"New York — January 1928", headline:"“A Chicken in Every Pot!”",
+ stories:[
+  "Herbert Hoover wins the presidency promising permanent prosperity. The market roars its approval to dizzying new heights.",
+  "Stocks double and double again. “Get in before it’s too late!” cry the shoe-shine boys — who all own shares themselves."],
+ whisper:"Prices have never been higher. The wisest investors are quietly selling… but the crowd keeps buying."},
+1929:{kicker:"New York — October 1929", headline:"Black Tuesday: Market Crashes",
+ crash:true,
+ stories:[
+  "Panic grips Wall Street. After years of soaring prices, the market collapses — millions of shares dumped in a single day as the ticker tape falls hours behind.",
+  "Margin calls ring out across the nation: brokers demand their loans back NOW, forcing borrowers to sell at rock-bottom prices. Fortunes built over a decade vanish in a week."],
+ whisper:"Sell what you must. The Roaring Twenties are over."},
+};
+
+/* ================= HELPERS ================= */
+const priceOf = (sym, year) => STOCKS.find(s => s.sym === sym).prices[year - 1920];
+const sharesValue = (shares, year) =>
+  Object.entries(shares).reduce((t, [s, q]) => t + q * priceOf(s, year), 0);
+const netWorth = g => g.cash + sharesValue(g.shares, g.year) - g.debt;
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(n).toFixed(2);
+const r2 = n => Math.round(n * 100) / 100;
+
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    const s = JSON.parse(raw);
+    if(!s || (s.screen !== "year" && s.screen !== "crash")) return null;
+    return s;
+  }catch(e){ return null; }
+}
+
+/* Force-sell shares (priciest holdings first) until margin debt is covered.
+   Sale proceeds first repay the broker; the student keeps any remainder. */
+function settleMargin(g){
+  const year = 1929;
+  let cash = g.cash, debt = g.debt;
+  const shares = {...g.shares};
+  const log = [];
+  let repaid = 0;
+  const order = Object.keys(shares)
+    .filter(s => shares[s] > 0)
+    .sort((a,b) => priceOf(b,year) - priceOf(a,year));
+  for(const sym of order){
+    while(debt > 0 && shares[sym] > 0){
+      const p = priceOf(sym, year);
+      shares[sym] -= 1;
+      const paid = Math.min(p, debt);
+      debt = r2(debt - paid);
+      repaid = r2(repaid + paid);
+      cash = r2(cash + p - paid);
+      log.push({sym, qty:1, price:p});
+    }
+    if(debt <= 0) break;
+  }
+  const soldCount = log.length;
+  const recovered = r2(log.reduce((t,l) => t + l.price, 0));
+  return {cash, shares, debt, soldCount, recovered, repaid};
+}
+
+function rankFor(finalVal){
+  if(finalVal >= 300) return "Wall Street Tycoon";
+  if(finalVal >= 150) return "Bull Market Baron";
+  if(finalVal >= 100) return "Savvy Investor";
+  if(finalVal >= 50)  return "Depression Survivor";
+  if(finalVal > 0)    return "Battered but Standing";
+  return "A Hard Lesson Learned";
+}
+
+/* ================= APP ================= */
+function App(){
+  const [g, setG] = useState(() => {
+    const s = loadSave();
+    return s || {screen:"welcome", year:1920, phase:"news", cash:START_CASH, shares:{}, debt:0};
+  });
+  const [saveInfo] = useState(loadSave);
+
+  useEffect(() => {
+    try{
+      if(g.screen === "year" || g.screen === "crash")
+        localStorage.setItem(SAVE_KEY, JSON.stringify(g));
+      else
+        localStorage.removeItem(SAVE_KEY);
+    }catch(e){}
+  }, [g.screen, g.year, g.phase, g.cash, g.shares, g.debt, g.studentName]);
+
+  const startFresh = (studentName = "") => setG({screen:"year", year:1920, phase:"news", cash:START_CASH, shares:{}, debt:0, studentName});
+  const resume = () => { const s = loadSave(); if(s) setG(s); };
+  const clearSave = () => { try{localStorage.removeItem(SAVE_KEY);}catch(e){} };
+
+  const finalizeCrash = (finalState) => {
+    const done = {...finalState, year:1929};
+    const settled = settleMargin(done);
+    setG({...done, screen:"results", settled});
+  };
+
+  const advanceYear = () => {
+    const debt = r2(g.debt * (1 + MARGIN_RATE));
+    if(g.year === 1928) setG({...g, screen:"crash", phase:"news", year:1929, debt});
+    else setG({...g, year:g.year + 1, phase:"news", debt});
+  };
+
+  return (
+    <div className="sheet">
+      <div className="masthead">
+        <div className="over">Est. 1920 &nbsp;•&nbsp; Texas Edition &nbsp;•&nbsp; Price: 2¢</div>
+        <h1>The Roaring Market</h1>
+        <div className="sub"><span>A 1920s Stock Market Simulation</span><span>For Texas History Classrooms</span></div>
+      </div>
+
+      {g.screen === "welcome" && (
+        <Welcome saveInfo={saveInfo} onStart={startFresh} onResume={resume} onClear={clearSave} />
+      )}
+      {g.screen === "year" && (
+        g.phase === "news"
+          ? <YearNews g={g} onOpenMarket={() => setG({...g, phase:"trade"})} />
+          : <YearTrade g={g} setG={setG} onAdvance={advanceYear} />
+      )}
+      {g.screen === "crash" && (
+        g.phase === "news"
+          ? <CrashNews onFaceMarket={() => setG({...g, phase:"trade"})} />
+          : <CrashTrade g={g} onFinalize={finalizeCrash} />
+      )}
+      {g.screen === "results" && (
+        <Results g={g} onCertificate={() => setG({...g, screen:"certificate"})} onRestart={() => {clearSave(); startFresh();}} />
+      )}
+      {g.screen === "certificate" && (
+        <CertificateScreen g={g} setG={setG} onRestart={() => {clearSave(); startFresh();}} />
+      )}
+
+      <footer className="note">
+        A classroom simulation — prices are simplified for learning, not real market data.<br/>
+        All of your progress is stored only in this browser. Nothing is sent anywhere.
+      </footer>
+    </div>
+  );
+}
+
+/* ================= WELCOME ================= */
+function splitName(full){
+  const parts = (full || "").trim().split(/\s+/).filter(Boolean);
+  if(parts.length === 0) return ["", ""];
+  if(parts.length === 1) return [parts[0], ""];
+  return [parts.slice(0, -1).join(" "), parts[parts.length - 1]];
+}
+
+function Welcome({saveInfo, onStart, onResume, onClear}){
+  const [savedFirst, savedLast] = splitName(saveInfo && saveInfo.studentName);
+  const [first, setFirst] = useState(savedFirst);
+  const [lastInit, setLastInit] = useState(savedLast);
+  const combined = ((first.trim() + " " + lastInit.trim()).trim());
+  const nameOk = first.trim() !== "" && lastInit.trim() !== "";
+  return (
+    <div>
+      <h2 className="section">How to Play</h2>
+      <p className="lede">
+        The year is <b>1920</b>. The Great War is over, radios are crackling to life, and America
+        is about to roar. You have <b>{money(START_CASH)}</b> and a list of stocks.
+        Each year you will read the news, check prices, and decide to <b>buy</b>, <b>sell</b>,
+        or <b>hold</b> — and you may even <b>buy on margin</b> (borrow money to invest bigger).
+      </p>
+      <p className="lede">
+        Then comes <b>1929</b>… and the crash. How will your fortune fare?
+        Take it at your own pace — your progress saves automatically in this browser.
+      </p>
+
+      <div className="center" style={{margin:"18px 0 4px"}}>
+        <div style={{fontWeight:700, marginBottom:8}}>Your name for the certificate</div>
+        <div style={{display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap"}}>
+          <input id="student-first" className="nameinput" style={{width:"min(220px,80%)"}}
+            placeholder="First name" value={first}
+            onChange={e => setFirst(e.target.value)} maxLength={30} autoComplete="off"
+            aria-label="First name" />
+          <input id="student-lastinit" className="nameinput" style={{width:"min(130px,60%)"}}
+            placeholder="Last initial" value={lastInit}
+            onChange={e => setLastInit(e.target.value)} maxLength={4} autoComplete="off"
+            aria-label="Last initial" />
+        </div>
+        <p className="muted" style={{margin:"6px 0 0", fontSize:13}}>
+          {nameOk ? `Your certificate will read \u201c${combined}\u201d.` : "Please enter your first name and last initial to begin."}
+        </p>
+      </div>
+
+      <div className="center" style={{margin:"14px 0 22px"}}>
+        {saveInfo && (saveInfo.screen === "year" || saveInfo.screen === "crash") && (
+          <div className="goodbox">
+            <b>Saved game found</b> — you left off in {saveInfo.year === 1929 ? "October 1929 (the crash!)" : saveInfo.year}.
+            <br/><br/>
+            <button className="btn" onClick={onResume}>Resume My Game</button>
+            <button className="btn secondary" onClick={() => {onClear(); onStart(combined);}} disabled={!nameOk}>Start Over</button>
+          </div>
+        )}
+        {!(saveInfo && (saveInfo.screen === "year" || saveInfo.screen === "crash")) && (
+          <button className="btn" onClick={() => onStart(combined)} disabled={!nameOk}>Begin — January 1920</button>
+        )}
+      </div>
+
+      <details className="teacher">
+        <summary>For Teachers — about this simulation</summary>
+        <p>
+          Students invest a fictional {money(START_CASH)} across 1920–1929, reacting to yearly
+          news stories before the 1929 crash. Concepts covered: buying/selling, diversification,
+          speculation, buying on margin, margin calls, and boom-and-bust cycles in Texas and
+          U.S. history.
+        </p>
+        <p>
+          <b>Student privacy:</b> there are no accounts and no cloud database. All game data
+          lives in the student's own browser (localStorage) and can be cleared any time.
+          At the end, students generate a certificate with their first name and last initial
+          plus starting/final portfolio values, which they can print, copy, or email to you.
+        </p>
+        <p>
+          <b>To share:</b> host the single <i>index.html</i> file on any website, LMS, or shared
+          drive — no server or build step required (it loads React from a CDN).
+        </p>
+      </details>
+    </div>
+  );
+}
+
+/* ================= YEAR: NEWS ================= */
+function YearNews({g, onOpenMarket}){
+  const n = NEWS[g.year];
+  return (
+    <div>
+      <div className="dateline">{n.kicker}</div>
+      <div className="headline">{n.headline}</div>
+      <div className="cols">{n.stories.map((p,i) => <p key={i}>{p}</p>)}</div>
+      <div className="whisper"><b>☞ Wall Street Whispers</b>{n.whisper}</div>
+      <div className="center">
+        <button className="btn" onClick={onOpenMarket}>Open the Market — {g.year} Prices</button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= PORTFOLIO BAR ================= */
+function PortfolioBar({g}){
+  const sv = sharesValue(g.shares, g.year);
+  const nw = netWorth(g);
+  return (
+    <div className="portbar">
+      <div className="stat"><div className="k">Cash</div><div className="v">{money(g.cash)}</div></div>
+      <div className="stat"><div className="k">Stocks Worth</div><div className="v">{money(sv)}</div></div>
+      <div className="stat"><div className="k">Margin Debt</div><div className={"v " + (g.debt > 0 ? "neg" : "")}>{money(g.debt)}</div></div>
+      <div className="stat"><div className="k">Net Worth</div><div className={"v " + (nw >= START_CASH ? "pos" : "neg")}>{money(nw)}</div></div>
+    </div>
+  );
+}
+
+/* ================= YEAR: TRADE ================= */
+function YearTrade({g, setG, onAdvance}){
+  const [margin, setMargin] = useState(false);
+  const [msg, setMsg] = useState(null); // {type:'err'|'ok', text}
+  const [repayAmt, setRepayAmt] = useState("");
+
+  const say = (type, text) => setMsg({type, text});
+
+  const buy = (sym, qty) => {
+    qty = Math.floor(Number(qty));
+    if(!qty || qty < 1) return say("err", "Enter a whole number of shares to buy.");
+    const price = priceOf(sym, g.year);
+    const cost = r2(qty * price);
+    const shortfall = r2(cost - g.cash);
+    if(shortfall <= 0){
+      const shares = {...g.shares, [sym]:(g.shares[sym] || 0) + qty};
+      setG({...g, cash:r2(g.cash - cost), shares});
+      say("ok", `Bought ${qty} share${qty>1?"s":""} of ${sym} for ${money(cost)}.`);
+    } else if(margin){
+      if(g.debt + shortfall > MARGIN_LIMIT + 1e-9)
+        return say("err", `Margin limit is ${money(MARGIN_LIMIT)} total debt. This purchase would borrow ${money(shortfall)} (you already owe ${money(g.debt)}). Buy fewer shares.`);
+      const shares = {...g.shares, [sym]:(g.shares[sym] || 0) + qty};
+      setG({...g, cash:0, debt:r2(g.debt + shortfall), shares});
+      say("ok", `Bought ${qty} share${qty>1?"s":""} of ${sym} on margin — borrowed ${money(shortfall)}. Debt now ${money(r2(g.debt + shortfall))}.`);
+    } else {
+      say("err", `Not enough cash — that costs ${money(cost)} and you have ${money(g.cash)}. Tick “buy on margin” to borrow the ${money(shortfall)} shortfall.`);
+    }
+  };
+
+  const sell = (sym, qty) => {
+    qty = Math.floor(Number(qty));
+    if(!qty || qty < 1) return say("err", "Enter a whole number of shares to sell.");
+    const owned = g.shares[sym] || 0;
+    if(qty > owned) return say("err", `You only own ${owned} share${owned===1?"":"s"} of ${sym}.`);
+    const proceeds = r2(qty * priceOf(sym, g.year));
+    const shares = {...g.shares, [sym]:owned - qty};
+    setG({...g, cash:r2(g.cash + proceeds), shares});
+    say("ok", `Sold ${qty} share${qty>1?"s":""} of ${sym} for ${money(proceeds)}.`);
+  };
+
+  const repay = () => {
+    const amt = r2(Number(repayAmt));
+    if(!amt || amt <= 0) return say("err", "Enter an amount to repay.");
+    if(g.debt <= 0) return say("err", "You have no margin debt.");
+    const pay = Math.min(amt, g.debt, g.cash);
+    if(pay <= 0) return say("err", "You have no cash to repay with — sell some shares first.");
+    setG({...g, cash:r2(g.cash - pay), debt:r2(g.debt - pay)});
+    setRepayAmt("");
+    say("ok", `Repaid ${money(pay)} of margin debt. Remaining debt: ${money(r2(g.debt - pay))}.`);
+  };
+
+  return (
+    <div>
+      <div className="dateline">The Market — {g.year}</div>
+      <div className="headline" style={{fontSize:"clamp(22px,4vw,32px)"}}>Buy. Sell. Hold your nerve.</div>
+      <PortfolioBar g={g} />
+      {msg && <div className={"msg " + msg.type}>{msg.text}</div>}
+
+      <div className="marginrow">
+        <label>
+          <input type="checkbox" checked={margin} onChange={e => setMargin(e.target.checked)} />
+          <span><b>Buy on margin</b> — if a purchase costs more cash than I have, borrow the shortfall from my broker (up to {money(MARGIN_LIMIT)} total debt, {Math.round(MARGIN_RATE*100)}% interest each year). Bigger bets… bigger risks.</span>
+        </label>
+      </div>
+
+      <table className="market">
+        <thead><tr><th>Company</th><th>Price</th><th>Change</th><th>Own</th><th>Trade</th></tr></thead>
+        <tbody>
+          {STOCKS.map(s => <StockRow key={s.sym} s={s} g={g} onBuy={buy} onSell={sell} />)}
+        </tbody>
+      </table>
+
+      {g.debt > 0 && (
+        <div className="marginrow">
+          <b>Margin loan:</b> you owe <b className="neg">{money(g.debt)}</b> ({Math.round(MARGIN_RATE*100)}% interest is added each New Year).
+          <div style={{marginTop:8}}>
+            <input className="qty" style={{width:110}} type="number" min="1" step="1" placeholder="$ amount"
+              value={repayAmt} onChange={e => setRepayAmt(e.target.value)} />
+            <button className="mini" onClick={repay}>Repay Debt</button>
+            <button className="mini sell" onClick={() => {setRepayAmt(String(Math.min(g.debt, g.cash)));}}>Repay Max</button>
+          </div>
+        </div>
+      )}
+
+      <div className="center" style={{marginTop:20}}>
+        <button className="btn" onClick={onAdvance}>
+          {g.year === 1928 ? "Ring in 1929…" : `Ring in ${g.year + 1} →`}
+        </button>
+      </div>
+      <p className="muted center">Margin interest ({Math.round(MARGIN_RATE*100)}%) is added to any debt each New Year.</p>
+    </div>
+  );
+}
+
+function StockRow({s, g, onBuy, onSell}){
+  const [qty, setQty] = useState("");
+  const price = priceOf(s.sym, g.year);
+  const prev = g.year > 1920 ? priceOf(s.sym, g.year - 1) : null;
+  const chg = prev === null ? null : r2(price - prev);
+  const owned = g.shares[s.sym] || 0;
+  return (
+    <tr>
+      <td className="c-co"><span className="sym">{s.sym}</span> — {s.name}<span className="blurb">{s.blurb}</span></td>
+      <td className="c-price"><b>{money(price)}</b></td>
+      <td className="c-chg">{chg === null ? <span className="muted">—</span> :
+        <span className={chg >= 0 ? "pos" : "neg"}>{chg >= 0 ? "▲" : "▼"} {money(Math.abs(chg))}</span>}</td>
+      <td className="c-own">{owned}</td>
+      <td className="c-trade" style={{whiteSpace:"nowrap"}}>
+        <input className="qty" type="number" min="1" step="1" value={qty}
+          onChange={e => setQty(e.target.value)} placeholder="#" aria-label={"shares of " + s.sym} />
+        <button className="mini" onClick={() => onBuy(s.sym, qty)}>Buy</button>
+        <button className="mini sell" onClick={() => onSell(s.sym, qty)}>Sell</button>
+      </td>
+    </tr>
+  );
+}
+
+/* ================= 1929: CRASH ================= */
+function CrashNews({onFaceMarket}){
+  const n = NEWS[1929];
+  return (
+    <div>
+      <div className="dateline">{n.kicker}</div>
+      <div className="headline crash">{n.headline}</div>
+      <div className="cols">{n.stories.map((p,i) => <p key={i}>{p}</p>)}</div>
+      <div className="whisper"><b>☞ Wall Street Whispers</b>{n.whisper}</div>
+      <div className="center">
+        <button className="btn" onClick={onFaceMarket}>Face the Market — Crash Prices</button>
+      </div>
+    </div>
+  );
+}
+
+function CrashTrade({g, onFinalize}){
+  const [msg, setMsg] = useState(null);
+  const [local, setLocal] = useState(g);
+  const say = (type, text) => setMsg({type, text});
+
+  const doSell = (sym, qty) => {
+    qty = Math.floor(Number(qty));
+    if(!qty || qty < 1) return say("err", "Enter a whole number of shares to sell.");
+    const owned = local.shares[sym] || 0;
+    if(qty > owned) return say("err", `You only own ${owned} share${owned===1?"":"s"} of ${sym}.`);
+    const proceeds = r2(qty * priceOf(sym, 1929));
+    setLocal({...local, cash:r2(local.cash + proceeds), shares:{...local.shares, [sym]:owned - qty}});
+    say("ok", `Sold ${qty} share${qty>1?"s":""} of ${sym} at crash prices for ${money(proceeds)}.`);
+  };
+
+  const lg = {...local, year:1929};
+
+  return (
+    <div>
+      <div className="dateline">The Market — October 1929</div>
+      <div className="headline crash" style={{fontSize:"clamp(22px,4vw,32px)"}}>Sell what you must.</div>
+      <div className="alert">
+        <b>⚠ MARGIN CALL!</b> Brokers are demanding their loans back <b>immediately</b>.
+        When you finalize, shares will be sold automatically at crash prices to repay your{" "}
+        <b>{money(lg.debt)}</b> of debt — priciest holdings first. Sell now yourself, or let the broker do it.
+      </div>
+      <PortfolioBar g={lg} />
+      {msg && <div className={"msg " + msg.type}>{msg.text}</div>}
+      <table className="market">
+        <thead><tr><th>Company</th><th>Crash Price</th><th>Change</th><th>Own</th><th>Sell</th></tr></thead>
+        <tbody>
+          {STOCKS.map(s => <CrashRow key={s.sym} s={s} lg={lg} onSell={doSell} />)}
+        </tbody>
+      </table>
+      <div className="center" style={{marginTop:20}}>
+        <button className="btn" onClick={() => onFinalize(lg)}>Finalize — See How I Did</button>
+      </div>
+      <p className="muted center">Buying is closed. The party is over — all you can do is sell.</p>
+    </div>
+  );
+}
+
+function CrashRow({s, lg, onSell}){
+  const [qty, setQty] = useState("");
+  const price = priceOf(s.sym, 1929);
+  const prev = priceOf(s.sym, 1928);
+  const chg = r2(price - prev);
+  const owned = lg.shares[s.sym] || 0;
+  return (
+    <tr>
+      <td className="c-co"><span className="sym">{s.sym}</span> — {s.name}<span className="blurb">{s.blurb}</span></td>
+      <td className="c-price"><b className="neg">{money(price)}</b></td>
+      <td className="c-chg"><span className="neg">▼ {money(Math.abs(chg))}</span></td>
+      <td className="c-own">{owned}</td>
+      <td className="c-trade" style={{whiteSpace:"nowrap"}}>
+        <input className="qty" type="number" min="1" step="1" value={qty}
+          onChange={e => setQty(e.target.value)} placeholder="#" aria-label={"shares of " + s.sym} />
+        <button className="mini sell" onClick={() => onSell(s.sym, qty)}>Sell</button>
+        {owned > 0 && <button className="mini sell" onClick={() => onSell(s.sym, owned)}>All</button>}
+      </td>
+    </tr>
+  );
+}
+
+/* ================= RESULTS ================= */
+function Results({g, onCertificate, onRestart}){
+  const settled = g.settled || settleMargin({...g, year:1929});
+  const finalSharesVal = sharesValue(settled.shares, 1929);
+  const finalVal = r2(settled.cash + finalSharesVal - settled.debt);
+  const gain = r2(finalVal - START_CASH);
+  const pct = ((gain / START_CASH) * 100).toFixed(1);
+  const rank = rankFor(finalVal);
+
+  return (
+    <div>
+      <div className="dateline">Final Edition — October 1929</div>
+      <div className="headline">How Did You Fare?</div>
+
+      <div className="bigscore">
+        <div className="muted">Final portfolio value</div>
+        <div className={"num " + (finalVal >= START_CASH ? "pos" : "neg")}>{money(finalVal)}</div>
+        <div className="rank">{rank}</div>
+        <p className="lede center">
+          You turned <b>{money(START_CASH)}</b> into <b>{money(finalVal)}</b> —{" "}
+          {gain >= 0
+            ? <span className="pos">a gain of {money(gain)} (+{pct}%)</span>
+            : <span className="neg">a loss of {money(Math.abs(gain))} ({pct}%)</span>}.
+        </p>
+      </div>
+
+      <h2 className="section">Final Accounting</h2>
+      <table className="ledger">
+        <tbody>
+          <tr><td>Cash on hand</td><td style={{textAlign:"right"}}>{money(settled.cash)}</td></tr>
+          <tr><td>Remaining shares (at crash prices)</td><td style={{textAlign:"right"}}>{money(finalSharesVal)}</td></tr>
+          {settled.debt > 0 && (
+            <tr><td>Unpaid margin debt (shares ran out!)</td><td style={{textAlign:"right"}} className="neg">-{money(settled.debt)}</td></tr>
+          )}
+          <tr className="total"><td>Final portfolio value</td><td style={{textAlign:"right"}}>{money(finalVal)}</td></tr>
+        </tbody>
+      </table>
+      {settled.soldCount > 0 && (
+        <p className="muted center">
+          Margin call: your broker sold {settled.soldCount} share{settled.soldCount>1?"s":""} for{" "}
+          {money(settled.recovered)} and kept {money(settled.repaid)} to repay your debt.
+        </p>
+      )}
+
+      {settled.debt > 0 && (
+        <div className="alert">
+          <b>A hard lesson:</b> your margin debt was bigger than your shares were worth at crash
+          prices — even selling everything could not cover it. That is exactly how fortunes were
+          wiped out in 1929.
+        </div>
+      )}
+      {gain >= 0 && (
+        <div className="goodbox">
+          You beat the crash! {finalVal >= 150
+            ? "Selling near the top — or never buying the hype — kept your fortune safe."
+            : "Preserving your stake through the worst crash in history is a victory."}
+        </div>
+      )}
+
+      <div className="center" style={{marginTop:22}}>
+        <button className="btn" onClick={onCertificate}>Get My Certificate →</button>
+        <button className="btn secondary" onClick={onRestart}>Play Again</button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= CERTIFICATE ================= */
+function CertificateScreen({g, setG, onRestart}){
+  const settled = g.settled || settleMargin({...g, year:1929});
+  const finalVal = r2(settled.cash + sharesValue(settled.shares, 1929) - settled.debt);
+  const gain = r2(finalVal - START_CASH);
+  const pct = ((gain / START_CASH) * 100).toFixed(1);
+  const res = {finalVal, gain, pct};
+  const [name, setName] = useState(g.studentName || "");
+  const [teacherEmail, setTeacherEmail] = useState("");
+  const [copied, setCopied] = useState(false);
+  const today = new Date().toLocaleDateString("en-US", {year:"numeric", month:"long", day:"numeric"});
+
+  const updateName = (v) => { setName(v); setG(prev => ({...prev, studentName: v})); };
+
+  const summary =
+`The Roaring Market — 1920s Stock Market Simulation
+Student: ${name || "[name]"}
+Starting portfolio: ${money(START_CASH)}
+Final portfolio (Oct 1929): ${money(res.finalVal)}
+Result: ${res.gain >= 0 ? "gain" : "loss"} of ${money(Math.abs(res.gain))} (${res.pct}%)
+Completed: ${today}
+(Completed locally in the student's browser — no account, no cloud.)`;
+
+  const copySummary = async () => {
+    try{
+      await navigator.clipboard.writeText(summary);
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
+    }catch(e){
+      const ta = document.createElement("textarea");
+      ta.value = summary; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand("copy"); setCopied(true); setTimeout(() => setCopied(false), 2500); }catch(_){}
+      document.body.removeChild(ta);
+    }
+  };
+
+  const mailHref = "mailto:" + encodeURIComponent(teacherEmail.trim()) +
+    "?subject=" + encodeURIComponent("The Roaring Market — simulation results for " + (name || "student")) +
+    "&body=" + encodeURIComponent(summary);
+
+  return (
+    <div>
+      <h2 className="section">Your Certificate</h2>
+      <p className="lede">
+        Your name appears below as you entered it at the start — fix it here if needed.
+        It prints exactly as shown, so use your <b>first name and last initial</b> (for example, “Emma S.”).
+      </p>
+      <div className="center" style={{margin:"14px 0"}}>
+        <input className="nameinput" placeholder="First name + last initial" value={name}
+          onChange={e => updateName(e.target.value)} maxLength={40} aria-label="First name and last initial" />
+      </div>
+
+      <div id="certificate">
+        <div className="c-over">The Roaring Market • Texas History</div>
+        <h2>Certificate of Completion</h2>
+        <div className="c-body">
+          This certifies that
+          <div className="c-name">{name.trim() || "________________"}</div>
+          completed the 1920s Stock Market Simulation, surviving boom, speculation,
+          and the Crash of 1929.
+        </div>
+        <div className="c-vals">
+          <div><div className="k">Starting Portfolio</div><div className="v">{money(START_CASH)}</div></div>
+          <div><div className="k">Final Portfolio</div><div className="v">{money(res.finalVal)}</div></div>
+          <div><div className="k">Result</div>
+            <div className={"v " + (res.gain >= 0 ? "pos" : "neg")}>
+              {res.gain >= 0 ? "+" : "−"}{money(Math.abs(res.gain))}
+            </div>
+          </div>
+        </div>
+        <div className="c-body muted">All work done locally in the student's browser</div>
+        <div className="c-date">Completed {today}</div>
+      </div>
+
+      <h2 className="section">Send to Your Teacher</h2>
+      <p className="muted">Your teacher's email (optional — leave blank and your email app will let you pick):</p>
+      <div className="center">
+        <input className="nameinput" style={{fontSize:16}} placeholder="teacher@school.org" value={teacherEmail}
+          onChange={e => setTeacherEmail(e.target.value)} inputMode="email" aria-label="Teacher email (optional)" />
+      </div>
+      <div className="center" style={{marginTop:14}}>
+        <button className="btn" onClick={() => window.print()}>🖨 Print / Save PDF</button>
+        <button className="btn secondary" onClick={copySummary}>{copied ? "✓ Copied!" : "⧉ Copy Results"}</button>
+        <a className="btn secondary" style={{textDecoration:"none", display:"inline-block"}} href={mailHref}>✉ Email to Teacher</a>
+      </div>
+      <p className="muted center" style={{marginTop:10}}>
+        Printing lets you save the certificate as a PDF. “Copy Results” copies a text summary
+        you can paste into Google Classroom, Canvas, or any message.
+      </p>
+      <div className="center" style={{marginTop:18}}>
+        <button className="btn secondary" onClick={onRestart}>Play Again</button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= MOUNT ================= */
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
