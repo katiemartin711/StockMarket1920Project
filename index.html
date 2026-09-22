@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Roaring Market — A 1920s Stock Market Simulation</title>
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script crossorigin="anonymous" integrity="sha384-AISI5AuDG6E8DeEiFMVB3rGQxhZt24OU0avMp+GMV64+tpnA3+Z6F5MT0f96iPva" src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js"></script>
 <style>
   :root{
     --paper:#f6efdc; --paper2:#efe4c8; --ink:#2b2114; --ink-soft:#5a4a33;
@@ -122,7 +122,7 @@
     .sheet{padding:16px 14px 26px}
     .masthead .sub{font-size:11px}
     /* masthead top line stays on one line */
-    .masthead .over{font-size:10px; letter-spacing:2px; white-space:nowrap}
+    .masthead .over{font-size:clamp(8px,2.6vw,10px); letter-spacing:1px; white-space:nowrap}
     /* portfolio stats: two per row */
     .stat{flex:1 1 42%; padding:7px 8px}
     .stat .v{font-size:19px}
@@ -168,7 +168,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
-const {useState, useEffect, useMemo} = React;
+const {useState, useEffect} = React;
 
 /* ================= GAME DATA ================= */
 const START_CASH = 100;
@@ -256,6 +256,15 @@ function loadSave(){
     if(!raw) return null;
     const s = JSON.parse(raw);
     if(!s || (s.screen !== "year" && s.screen !== "crash")) return null;
+    /* shape guard: a tampered or corrupt save must never crash the app */
+    if(typeof s.cash !== "number" || typeof s.debt !== "number" ||
+       typeof s.year !== "number" || typeof s.shares !== "object" || !s.shares) return null;
+    if(s.year < 1920 || s.year > 1929 || s.phase === undefined) return null;
+    if(s.studentName !== undefined && typeof s.studentName !== "string") return null;
+    for(const k of Object.keys(s.shares)){
+      if(!STOCKS.some(st => st.sym === k)) return null;
+      if(typeof s.shares[k] !== "number" || s.shares[k] < 0) return null;
+    }
     return s;
   }catch(e){ return null; }
 }
@@ -315,6 +324,7 @@ function App(){
   }, [g.screen, g.year, g.phase, g.cash, g.shares, g.debt, g.studentName]);
 
   const startFresh = (studentName = "") => setG({screen:"year", year:1920, phase:"news", cash:START_CASH, shares:{}, debt:0, studentName});
+  const restart = () => { const nm = g.studentName || ""; clearSave(); startFresh(nm); };
   const resume = () => { const s = loadSave(); if(s) setG(s); };
   const clearSave = () => { try{localStorage.removeItem(SAVE_KEY);}catch(e){} };
 
@@ -352,10 +362,10 @@ function App(){
           : <CrashTrade g={g} onFinalize={finalizeCrash} />
       )}
       {g.screen === "results" && (
-        <Results g={g} onCertificate={() => setG({...g, screen:"certificate"})} onRestart={() => {clearSave(); startFresh();}} />
+        <Results g={g} onCertificate={() => setG({...g, screen:"certificate"})} onRestart={restart} />
       )}
       {g.screen === "certificate" && (
-        <CertificateScreen g={g} setG={setG} onRestart={() => {clearSave(); startFresh();}} />
+        <CertificateScreen g={g} setG={setG} onRestart={restart} />
       )}
 
       <footer className="note">
